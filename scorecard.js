@@ -8,7 +8,12 @@
   const fill = (t) => String(t ?? "").replace(/\{\{([\w.]+)\}\}/g, (m, k) => D.tokens[k] ?? m);
   const words = (t) => String(t).trim().split(/\s+/).filter(Boolean).length;
   const URL_RE = /(https?:\/\/[^\s<]+|\b(?:[a-z0-9-]+\.)+(?:com|ai|io|net|org|co)\b(?:\/[^\s<]*)?)/gi;
-  window.SC = { esc, fill, words, URL_RE };
+  // Link helpers count only real http(s) URLs, so "Founder & CEO, BigHammer.ai" in a signature is not a link.
+  const HTTP_RE = /https?:\/\/[^\s<]+/gi;
+  const links = (t) => (String(t).match(HTTP_RE) || []).length;
+  const hasUrl = (t) => new RegExp(HTTP_RE.source, "i").test(String(t));
+  const stripUrls = (t) => String(t).replace(HTTP_RE, " ");
+  window.SC = { esc, fill, words, URL_RE, HTTP_RE, links, hasUrl, stripUrls };
 
   const items = R.items(D);
   const totalW = R.criteria.reduce((a, c) => a + c.weight, 0);
