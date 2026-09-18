@@ -55,7 +55,47 @@
   const phone = (inner, cls) => `<div class="phone-wrap"><div class="phone"><div class="screen ${cls || ""}">${inner}</div><div class="island"></div></div></div>`;
   const home = (dark) => `<div class="home${dark ? " dark" : ""}"></div>`;
 
-  window.CORE = { get D() { return D; }, state, esc, fill, rich, linkify, firstUrl, words, sample, ampm, statusBar, phone, home, kindsHtml, toast, TOK_RE, URL_RE };
+  /* ---------- lightbox: click any image (or a carousel slide) to view it full size; ← → to move, click to zoom, Esc to close ---------- */
+  const LB = { items: [], i: 0, zoom: false };
+  function lbEl() {
+    let el = document.getElementById("lightbox");
+    if (el) return el;
+    el = document.createElement("div"); el.id = "lightbox"; el.className = "lb";
+    el.innerHTML = `<button class="lb-x" title="Close (Esc)">×</button><button class="lb-nav lb-prev" title="Previous (←)">‹</button><div class="lb-stage"><img alt=""><video controls playsinline style="display:none"></video></div><button class="lb-nav lb-next" title="Next (→)">›</button><div class="lb-cap"></div>`;
+    document.body.appendChild(el);
+    el.addEventListener("click", (e) => {
+      if (e.target.closest(".lb-x") || e.target === el) return lbClose();
+      if (e.target.closest(".lb-prev")) return lbShow(LB.i - 1);
+      if (e.target.closest(".lb-next")) return lbShow(LB.i + 1);
+      if (e.target.tagName === "IMG") { LB.zoom = !LB.zoom; el.classList.toggle("zoom", LB.zoom); }
+    });
+    document.addEventListener("keydown", (e) => { if (!el.classList.contains("open")) return; if (e.key === "Escape") lbClose(); if (e.key === "ArrowLeft") lbShow(LB.i - 1); if (e.key === "ArrowRight") lbShow(LB.i + 1); });
+    return el;
+  }
+  function lbShow(i) {
+    const el = lbEl(); if (!LB.items.length) return;
+    LB.i = (i + LB.items.length) % LB.items.length; LB.zoom = false; el.classList.remove("zoom");
+    const it = LB.items[LB.i], img = el.querySelector("img"), vid = el.querySelector("video");
+    if (it.video) { img.style.display = "none"; vid.style.display = "block"; vid.src = it.src; vid.play().catch(() => {}); }
+    else { vid.pause(); vid.style.display = "none"; img.style.display = "block"; img.src = it.src; }
+    el.querySelector(".lb-cap").textContent = `${it.caption || ""}${LB.items.length > 1 ? `  ·  ${LB.i + 1} / ${LB.items.length}` : ""}`;
+    el.querySelectorAll(".lb-nav").forEach(b => b.style.display = LB.items.length > 1 ? "" : "none");
+    el.classList.add("open");
+  }
+  function lbClose() { const el = lbEl(); el.classList.remove("open", "zoom"); el.querySelector("video").pause(); }
+  function lightbox(items, i) { LB.items = items; lbShow(i || 0); }
+  /* Any element with data-lb="<src>" opens the lightbox; siblings sharing data-lb-group inside the same card form the gallery. */
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-lb]");
+    if (!t) return;
+    e.preventDefault();
+    const scope = t.closest(".card") || document;
+    const group = t.dataset.lbGroup;
+    const els = group ? [...scope.querySelectorAll(`[data-lb][data-lb-group="${CSS.escape(group)}"]`)] : [t];
+    lightbox(els.map(el => ({ src: el.dataset.lb, caption: el.dataset.lbCaption || el.getAttribute("alt") || "", video: el.dataset.lbVideo === "1" })), Math.max(0, els.indexOf(t)));
+  });
+
+  window.CORE = { get D() { return D; }, state, esc, fill, rich, linkify, firstUrl, words, sample, ampm, statusBar, phone, home, kindsHtml, toast, lightbox, TOK_RE, URL_RE };
 
   function metaLine(cell) {
     const m = R.meta ? R.meta(cell) : null;

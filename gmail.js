@@ -33,7 +33,10 @@
     return paras.map(p => {
       // [[IMG:src|alt]] on its own paragraph = an inline image (hosted, never attached)
       const im = p.match(/^\[\[IMG:([^|\]]+)\|([^\]]*)\]\]$/);
-      if (im) return `<figure class="g-img"><img src="${esc(C.sample(im[1]))}" alt="${esc(im[2])}"><figcaption>${esc(im[2])}</figcaption></figure>`;
+      if (im) { const src = C.sample(im[1]); return `<figure class="g-img"><img src="${esc(src)}" alt="${esc(im[2])}" data-lb="${esc(src)}" data-lb-group="mail" data-lb-caption="${esc(im[2])}"><figcaption>${esc(im[2])}</figcaption></figure>`; }
+      // [[VIDEO:src|poster]] renders an inline HTML5 player (Gmail shows hosted video as a playable preview)
+      const vd = p.match(/^\[\[VIDEO:([^|\]]+)\|?([^\]]*)\]\]$/);
+      if (vd) return `<figure class="g-img"><video class="media-video" controls playsinline preload="metadata" src="${esc(C.sample(vd[1]))}"${vd[2] ? ` poster="${esc(vd[2])}"` : ""}></video></figure>`;
       // indented block (query listings, code) = monospace block as beehiiv's code block renders it
       if (/^ {2,}\S/.test(p) && p.split("\n").every(l => /^ {2,}|^$/.test(l))) return `<pre class="g-pre">${C.rich(p.replace(/^ {2}/gm, ""), "g-link")}</pre>`;
       return `<p>${C.rich(p, "g-link").replace(/\n/g, "<br>")}</p>`;
