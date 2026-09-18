@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BigHammer.ai · Email sequences · Gmail iOS preview</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="core.css?v=2">
+<link rel="stylesheet" href="gmail.css?v=2">
+<link rel="stylesheet" href="styles.css?v=2">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark gmail-mark"><svg width="22" height="17" viewBox="0 0 24 18"><path fill="#4285f4" d="M1.6 18h3.8V8.7L0 4.6v11.8C0 17.3.7 18 1.6 18z"/><path fill="#34a853" d="M18.6 18h3.8c.9 0 1.6-.7 1.6-1.6V4.6l-5.4 4.1z"/><path fill="#fbbc04" d="M18.6 1.6v7.1L24 4.6V2.4c0-2-2.3-3.2-3.9-2z"/><path fill="#ea4335" d="M5.4 8.7V1.6L12 6.6l6.6-5V8.7L12 13.6z"/><path fill="#c5221f" d="M0 2.4v2.2l5.4 4.1V1.6L3.9.4C2.3-.8 0 .4 0 2.4z"/></svg></span>
+    <div>
+      <div class="brand-title">BigHammer.ai · Email sequences</div>
+      <div class="brand-sub">Every email rendered as the prospect sees it in the Gmail iOS app</div>
+    </div>
+  </div>
+  <div class="controls">
+    <div class="seg" title="Opened conversation, or the inbox list row the email creates">
+      <button data-set="view" data-val="opened" class="on">Opened</button>
+      <button data-set="view" data-val="inbox">Inbox row</button>
+    </div>
+    <div class="seg" title="Show sample merge values or the raw {{tokens}}">
+      <button data-set="mode" data-val="sample" class="on">Sample data</button>
+      <button data-set="mode" data-val="raw">{{tokens}}</button>
+    </div>
+    <label class="tgl" title="Roughly a third of B2B inboxes block images; untick to see the alt-text fallback"><input type="checkbox" data-set="preview" checked><span>Images</span></label>
+    <div class="seg" title="Phone size">
+      <button data-set="scale" data-val="1">100%</button>
+      <button data-set="scale" data-val="0.85" class="on">85%</button>
+      <button data-set="scale" data-val="0.7">70%</button>
+    </div>
+  </div>
+</header>
+<div class="layout">
+  <nav class="sidenav" id="sidenav" aria-label="Sequences"></nav>
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast">Copied</div>
+<script src="core.js?v=2"></script>
+<script src="gmail.js?v=2"></script>
+<script src="data.js?v=2"></script>
+<script src="app.js?v=2"></script>
+</body>
+</html>

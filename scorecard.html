@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BigHammer.ai · Email sequences · Benchmark scorecard</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="core.css?v=2">
+<link rel="stylesheet" href="scorecard.css?v=2">
+</head>
+<body>
+<div class="sc-page">
+  <a class="sc-back" href="index.html">← Back to the Gmail preview</a>
+  <h1>Email sequences · benchmark scorecard</h1>
+  <p class="sc-lead">Goal: seats at the live masterclass, then the assessment, then a demo. Every cold, reminder and follow-up email is scored against published cold-email and deliverability benchmarks. Headline numbers are computed from the per-message table; projections are labelled as judgment.</p>
+  <div id="sc"></div>
+</div>
+<script src="data.js?v=2"></script>
+<script>
+window.RUBRIC = (function () {
+  const items = (D) => {
+    const out = [];
+    for (const c of D.campaigns) {
+      // one representative path per campaign: rows repeat the same bodies with different subject lines
+      const row = c.rows[0];
+      row.cells.forEach((cell, i) => { if (cell) out.push({ cell, label: `${c.columns[i].label} · ${c.columns[i].title}`, group: c.title.split(" (")[0].replace(/ · ".*"$/, ""), meta: `Day ${cell.day}` }); });
+      // also score the alternative subject lines of email 1 where they exist
+      c.rows.slice(1).forEach(r => { const cell = r.cells[0]; if (cell && cell.subject !== row.cells[0].subject && !r.id.includes("standalone") && !r.id.includes("noshow")) out.push({ cell, label: `${c.columns[0].label} · alt subject`, group: c.title.split(" (")[0].replace(/ · ".*"$/, ""), meta: `"${cell.subject}"` }); });
+    }
+    return out;
+  };
+  const S = new Proxy({}, { get: (_, k) => window.SC[k] });
+  const bodyOf = (cell) => S.fill(cell.body || "").replace(/\[\[IMG:[^\]]*\]\]/g, "");
+  const links = (t) => (t.match(S.URL_RE) || []).length;
+  const spam = /\b(free|guarantee|act now|limited time|winner|100%|\$\$\$)\b|!{2,}|[A-Z]{5,}/;
+  return {
+    intro: "Sequence A and B are scored on their first path (subject A); alternative subject lines for email 1 are scored as separate rows because the body is identical. Reminder and follow-up emails go to registrants, so the personalization criterion is relaxed for them (a first-name merge counts as full marks).",
+    criteria: [
+      { id: "len", label: "Body length", weight: 3, how: "Cold email: 25 to 125 words scores 5 (Lavender 25 to 50; Backlinko/Overloop 50 to 125). 126 to 160 scores 4, 161 to 200 scores 3, 201 to 260 scores 2, over 260 scores 1. Registrant emails get one extra point of tolerance.",
+        score: (cell, it) => { const w = S.words(bodyOf(cell)); const reg = /reminder|invite|post/.test((cell.kinds || []).join()); const t = reg ? 40 : 0; const s = w <= 125 + t ? 5 : w <= 160 + t ? 4 : w <= 200 + t ? 3 : w <= 260 + t ? 2 : 1; return { s, why: `${w} words` }; } },
+      { id: "subj", label: "Subject line", weight: 2, how: "36 to 50 characters (Backlinko via Klenty) or 6 to 10 words (Instantly 2026) scores 5; under 36 chars but 3+ words scores 4 (Belkins found 3-word subjects also perform); 51 to 65 scores 3; over 65 scores 2. Title-case marketing phrasing or an exclamation mark loses a point.",
+        score: (cell) => { const su = S.fill(cell.subject || ""); const n = su.length, w = S.words(su); let s = (n >= 36 && n <= 50) || (w >= 6 && w <= 10) ? 5 : n < 36 && w >= 3 ? 4 : n < 36 ? 3 : n <= 65 ? 3 : 2; if (/!/.test(su) || /^[A-Z][a-z]+( [A-Z][a-z]+){3,}/.test(su)) s -= 1; return { s, why: `${n} chars · ${w} words` }; } },
+      { id: "pers", label: "Personalization", weight: 3, how: "A researched {{personalization}} line scores 5; first name plus company reference scores 4; first name only scores 3 (registrant emails: first name scores 5 because the relationship exists); nothing scores 1. Backlinko: personalized body +32.7% replies.",
+        score: (cell) => { const b = cell.body || ""; const reg = /reminder|post|invite/.test((cell.kinds || []).join()); if (/\{\{personalization\}\}/.test(b)) return { s: 5, why: "researched opener line" }; if (/\{\{first_name\}\}/.test(b) && /\{\{company\}\}/.test(b)) return { s: 4, why: "first name + company" }; if (/\{\{first_name\}\}/.test(b)) return { s: reg ? 5 : 3, why: reg ? "first name (registrant, relationship exists)" : "first name only" }; return { s: 1, why: "no merge field" }; } },
+      { id: "cta", label: "CTA clarity", weight: 3, how: "Exactly one primary ask with the webinar link (title and date named) scores 5; one ask without the date scores 4; two asks scores 3; three or more competing links scores 2; no link or ask scores 1. Gong/Lavender data favours one ask per email.",
+        score: (cell) => { const b = bodyOf(cell); const n = links(b); const hasDate = /Thursday 15 October|{{webinar_date}}|tomorrow|1 hour|today/i.test(b) || /tomorrow|1 hour|today/i.test(b); if (n === 0) return { s: /reply/i.test(b) ? 3 : 1, why: "no link" }; if (n === 1) return { s: hasDate ? 5 : 4, why: hasDate ? "one ask, date named" : "one ask" }; if (n === 2) return { s: 3, why: "two links" }; return { s: 2, why: `${n} links` }; } },
+      { id: "spec", label: "Specific proof", weight: 2, how: "Real numbers from the deck ($308K, $315K, $2.74M, 84%, 60% backlog) or a named mechanism (system tables, auto-termination) score 5; a percentage claim only scores 3; adjectives only score 1.",
+        score: (cell) => { const b = bodyOf(cell); if (/\$[\d.,]+[KM]?|system\.\w+|auto-terminat|node_timeline|OPTIMIZE|ZORDER/i.test(b)) return { s: 5, why: "dollar figures or named mechanism" }; if (/\d+%/.test(b)) return { s: 3, why: "percentage claims only" }; return { s: 1, why: "no numbers" }; } },
+      { id: "deliv", label: "Deliverability hygiene", weight: 2, how: "Plain text, no spam trigger words, no shouting caps, no more than one image scores 5. Each of: spam words, caps run, exclamation marks, or an image costs a point (images are the Sequence B trade-off: Smartlead/Lemlist flag image-led cold emails as high risk on unwarmed domains).",
+        score: (cell) => { const b = bodyOf(cell) + " " + S.fill(cell.subject || ""); let s = 5, why = []; if (spam.test(b)) { s--; why.push("spam-trigger word or caps"); } if (/!/.test(b)) { s--; why.push("exclamation"); } if (/\[\[IMG:/.test(cell.body || "")) { s--; why.push("image-led"); } if ((b.match(/\$50|gift card|voucher/gi) || []).length) { s--; why.push("gift-card incentive reads promotional"); } return { s, why: why.join(", ") || "plain text, clean" }; } },
+      { id: "reply", label: "Reply hook", weight: 2, how: "Ends with a question or an explicit reply invitation (\"reply 'numbers'\", \"send the output back\") scores 5; soft invitation scores 3; none scores 1. Replies protect sender reputation and are the leading indicator Belkins tracks.",
+        score: (cell) => { const b = bodyOf(cell); const tail = b.slice(-400); if (/\?\s*$|\?\s*\n|reply\b|send the output back|hit reply/i.test(tail)) return { s: 5, why: "explicit reply ask" }; if (/register|save your seat|book/i.test(tail)) return { s: 3, why: "link ask only" }; return { s: 1, why: "no ask" }; } }
+    ],
+    items,
+    benchmarks: [
+      { metric: "Cold email reply rate", value: "0.45% (Belkins, 7.5M emails, pixel-free) to 3.4–4.1% (Instantly, Hunter, cross-platform median ~4%)", source: "Belkins 2025/26; Instantly 2026; Hunter 2025", url: "https://belkins.io/blog/cold-email-response-rates", note: "Instantly: 5–10% \"good\", 10–15% \"excellent\" (https://instantly.ai/blog/email-sequence-benchmarks-2026-whats-a-good-open-rate-reply-rate-and-cost-per-meeting/)." },
+      { metric: "Cold email open rate", value: "27.7% (aggregated) to 44% (Instantly 2026); unreliable since Apple Mail Privacy Protection", source: "Cleverly / Instantly", url: "https://www.cleverly.co/blog/cold-email-benchmarks-by-industry" },
+      { metric: "Meeting-booked rate", value: "0.5–2.5% of sends; 2.3% average Q1 2026 (one vendor)", source: "Reachoutly 2026", url: "https://reachoutly.com/cold-email/conversion-rate/" },
+      { metric: "Subject line length", value: "36–50 chars (Backlinko) or 6–10 words (Instantly); Belkins: 3-, 7- or 8-word subjects outperform", source: "Klenty (Backlinko data); Instantly 2026; Belkins", url: "https://www.klenty.com/blog/cold-email-statistics/" },
+      { metric: "Body length", value: "25–50 words (Lavender) to 50–125 words (Backlinko/Boomerang via Overloop); over 200 words drops to 3.9% reply", source: "Lavender; Overloop 2026", url: "https://overloop.com/blog/whats-the-best-email-length-for-sales-outreach" },
+      { metric: "Plain text vs HTML", value: "Plain text: 15–25% more replies; HTML bounces ~650% more (2.2M-email study)", source: "Hunter.io 2025", url: "https://hunter.io/blog/is-html-harming-your-cold-email-deliverability/" },
+      { metric: "Personalization lift", value: "+32.7% replies (personalized body), +30.5% (personalized subject)", source: "Backlinko via Klenty", url: "https://www.klenty.com/blog/cold-email-statistics/" },
+      { metric: "Follow-ups", value: "3–5 step sequences 8.3% reply vs 4.1% single email; 55–65% of replies come from follow-ups; 4+ follow-ups triple spam/unsubscribe risk", source: "Woodpecker 2026; Belkins", url: "https://woodpecker.co/blog/cold-email-statistics/" },
+      { metric: "Spam complaint ceiling", value: "Keep under 0.1%, never reach 0.3% (mitigation ineligible above 0.3%); SPF + DKIM + DMARC + one-click unsubscribe for bulk senders", source: "Google Email sender guidelines FAQ", url: "https://support.google.com/a/answer/14229414?hl=en" },
+      { metric: "Images in cold email", value: "Max 1 image, under 100 KB, 60%+ text; image-only emails treated like classic image spam; risk highest on unwarmed domains", source: "Smartlead 2025", url: "https://www.smartlead.ai/blog/do-images-send-your-emails-to-spam" },
+      { metric: "Webinar live attendance", value: "41.6% median of registrants (12.4K webinars); 44–50% \"good\" (Contrast); 3 reminders at −1d/−1h/−5m = +27% attendance", source: "Digital Applied 2026; Contrast 2026", url: "https://www.digitalapplied.com/blog/webinar-statistics-2026-attendance-conversion-data" },
+      { metric: "BigHammer's own history", value: "W1 463 reg / 46 att (9.9%), W2 225 / 37 (16.4%), W3 547 / 35 (6.4%): far below the 41.6% median, so reminders matter more than volume", source: "BigHammer Webinar 3 report (internal)", url: "https://adisuja.github.io/bighammer-linkedin-sequences/scorecard.html" }
+    ],
+    projections: [
+      { label: "Sequence A reply rate", value: "2–4% of delivered", basis: "Tier 1–3 personalization, plain text, 5 touches over 13 days; Belkins' pixel-free 0.45% is the floor if the list is weak." },
+      { label: "Sequence A registrations", value: "0.8–1.5% of delivered", basis: "About a third of replies plus direct clicks convert to a registration; the stale June date on the webinar page's HTML will cost some of these." },
+      { label: "Sequence B (meme) reply rate", value: "1–3%, with higher variance", basis: "Image-led first touch on a cold domain; hold it for Tier 1–4 personalization and a warmed subdomain as the sending notes say." },
+      { label: "Registrant reminders → live attendance", value: "35–45% of registrants", basis: "Five reminder emails match Contrast's cadence; W3's 6.4% was driven by the GHL deliverability problem, not the copy." },
+      { label: "Post-masterclass follow-up → demo bookings", value: "0 until Calendly is fixed; then 5–10% of attendees", basis: "Every CTA in the four emails points at a page that currently says \"This calendar is currently unavailable\"." }
+    ],
+    notes: [
+      "Fix the Calendly event type before any follow-up ships: all four post-masterclass emails and the assessment page's \"Schedule a call\" depend on it.",
+      "Fix the server-rendered date on webinar.bighammerai.com (HTML still says June 18, 2026 · 11:00 AM ET). Gmail link previews and any crawler-based sender check show a past event.",
+      "Reminder emails still carry the older deck's claims (73–80% TCO, \"UNIFY → AUTOMATE → ELEVATE\", AI tokens). Align them with the six-pattern masterclass framing used everywhere else.",
+      "A1's alt subject \"a line I keep hearing from data leaders\" (38 chars) sits in the benchmark band; \"the Ferrari-to-the-grocery-store problem\" (40 chars) does too. Test those two first as the doc suggests.",
+      "Sequence B: host the meme, ship the alt text, and keep it off Tier 5 prospects; expect it to be the higher-variance arm.",
+      "Add a one-line physical address and unsubscribe path to the reminder and follow-up emails if they are sent through a bulk tool (Google bulk-sender rules)."
+    ]
+  };
+})();
+</script>
+<script src="scorecard.js?v=2"></script>
+</body>
+</html>
